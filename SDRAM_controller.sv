@@ -1,6 +1,6 @@
 //SDRAM Controller XXX version - operate with 100MHz clock
 
-module SDRAM_controller(rst,,i_clk,i_initial,i_addr,i_ba,i_data,i_rw,A,BA,DQ,CLK,CKE,CS_N,RAS_N,CAS_N,WE_N,DQML,DQMH);
+module SDRAM_controller(i_rst,i_clk,i_initial,i_addr,i_ba,i_data,i_rw,A,BA,DQ,CKE,CS_N,RAS_N,CAS_N,WE_N,DQML,DQMH,o_data,o_busy);
 
 //Parameter declerations
 parameter A_WIDTH=13;                         //SDRAM address bus length
@@ -48,7 +48,6 @@ input logic [D_WIDTH-1:0] i_data;                                       //Data t
 //Outputs
 output logic [A_WIDTH-1:0] A;                  //SDRAM address bus
 output logic [BA_WIDTH-1:0] BA;                //Banks select address
-output logic CLK;                              //SDRAM clock input - 100MHz.
 output logic CKE;                              //Clock enable
 output logic CS_N;                             //Chip select
 output logic RAS_N;                            //Row address strobe command
@@ -58,7 +57,7 @@ output logic DQML;                             //Lower byte, input/output mask
 output logic DQMH;                             //Upper byte, input/ouptut mask
 
 output logic [15:0] o_data;                    //Word read from memoy. [?] What happens here in bursts? [?]
-output logic busy;                             //Read/Write operations can be initiated only when not busy, i.e. busy==1'b0
+output logic o_busy;                             //Read/Write operations can be initiated only when not busy, i.e. busy==1'b0
 
 //Inouts
 inout logic [D_WIDTH-1:0] DQ;                  //
@@ -67,12 +66,17 @@ inout logic [D_WIDTH-1:0] DQ;                  //
 logic [15:0] counter_wait;                     //
 logic [9:0] counter_rst;                       // Auto-refresh at 100MHz occurs every 782 clock cycles (8192 time every 64ms)
 logic refresh_flag;                            //
+logic [3:0] state;
+logic [3:0] next_state;
+logic [3:0] next_state_after_wait;
+logic [3:0] cmd;
+logic refresh_en;
 
 //HDL code : For start up: apply clock, take rst to '1'. To turn off take rst down and clock cycle later you can close the clock [!] 
 
 //Next state latching
-always @(posedge CLK)                                             //POWER_DOWN mode may be entered only in synch with CLK
-  if (!rst)
+always @(posedge i_clk)                                             //POWER_DOWN mode may be entered only in synch with i_clk
+  if (!i_rst)
     state<=POWER_DOWN;
   else 
     state<=next_state; 
@@ -82,20 +86,17 @@ always @(*)
   case (state)
     POWER_DOWN : next_state = INITIALIZATION;
     INITIALIZATION : next_state = WAIT;
-    WAIT : next_state = (counter_wait>$bits(counter_wait)'(0)) ? WAIT: next_state_after_wait;
+    WAIT : next_state = (counter_wait>$bits(counter_wait)'(1)) ? WAIT: next_state_after_wait;
     PRECHARGE_INIT : next_state = WAIT;
     AUTO_REFRESH_INIT_1 : next_state = WAIT;
     AUTO_REFRESH_INIT_2 : next_state = WAIT;
-    MODE_REGISTER_SET : next_State = IDLE;
-
-    //IDLE : next_state = If i need to refresh --> refresh else If I need to read/write --> activate a row else if I want to confugure the device again MRS
-    IDLE : next_state = TAKE care of the refresh first!!! [X]
-    (i_initial==1'b1) : ACT ? IDLE;
-    ACTIVATE :
+    MODE_REGISTER_SET : next_state = IDLE;
+    IDLE : next_state = (refresh_flag==1'b1) ? AUTO_REFRESH : IDLE;
+	AUTO_REFRESH : next_state = WAIT;
  endcase
 
 //
-always @(posedge CLK)
+always @(posedge i_clk)
   case (state)
 
     POWER_DOWN : begin
@@ -109,8 +110,8 @@ always @(posedge CLK)
       CKE<=1'b1;
       DQML<=1'b1;
       DQMH<=1'b1;
-      counter_wait<=$bits(counter_wait)'(10000);                 //Initialization requires 100us, i.e. 1000 cycles in 100MHz clock
-      next_state_after_wait<=PRECHARGE_INIT;
+      counter_wait<=$bits(counter_wait)'(10000);                 //Initialization requires 100us, i.e. 10000 cycles in 100MHz clock
+      next_state_after_wait<=PRECHARGE_INIT;                     //
     end
 
     WAIT: begin
@@ -122,7 +123,7 @@ always @(posedge CLK)
       cmd<=PRE;
       A[10]<=1'b1;                                              //Setting A[10] to logic high precharges all banks
       counter_wait<=$bits(counter_wait)'(2);                    //Precharge requires 2 clock cycles (PRE to ACT)
-      next_state_after_wait<=AUTO_REFRESH_INIT;
+      next_state_after_wait<=AUTO_REFRESH_INIT_1;
     end
 
     AUTO_REFRESH_INIT_1: begin
@@ -149,20 +150,12 @@ always @(posedge CLK)
    end
 
    IDLE: begin
-     if (refresh_flag==1'b1) begin                                    //Refresh is due
-       cmd<=REF;
-       counter_wait<=$bits(counter_wait)'(6);                    //TRC period is 60ns (REF to REF)
-       next_state_after_wait<=IDLE;                 //Two auto refresh commands are required during initialization
-       busy<=1'b1; 
-     end
-    else begin
       cmd<=NOP;
-      busy<=1'b0;
-    end
+      o_busy<=1'b0;
    end
 
    AUTO_REFRESH: begin
-     cmd<=REF;                                                 //
+     cmd<=REF;
      counter_wait<=$bits(counter_wait)'(6);                    //TRC period is 60ns (REF to REF)
      next_state_after_wait<=IDLE;                              //
    end
@@ -171,17 +164,23 @@ always @(posedge CLK)
 
 //Auto-refresh counter
 always @(posedge i_clk or negedge i_rst)
-  if (!i_rst)
+  if (!i_rst) begin
     counter_rst<=$bits(counter_rst)'(0);
-  else if (counter_rst<$bits(counter_rst)'(782)) begin
+	refresh_en<=1'b0;                                          //Auto-refresh counter is enabled after initiation is complete
+	refresh_flag<=1'b0;                                        //
+  end
+  else if ((counter_rst<$bits(counter_rst)'(782))&&(refresh_en==1'b1)) begin
     refresh_flag<=1'b0;
     counter_rst<=counter_rst+$bits(counter_rst)'(1);
   end
-  else begin
+  else if (refresh_en==1'b1)begin
      refresh_flag<=1'b1;
     counter_rst<=$bits(counter_rst)'(0);
   end
+  else if ((state==IDLE)&&(refresh_en==1'b0))
+    refresh_en<=1'b1;
 
 //Assign the commands
 assign {CS_N,RAS_N,CAS_N,WE_N}=cmd;                            //cmd is synchronized to the positive edge of i_clk
+assign DQ='z;
 endmodule 
