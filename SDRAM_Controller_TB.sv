@@ -37,6 +37,7 @@ integer SEED_d=15;                                 //Used to generate random dat
 logic [A_ROW_WIDTH+A_COL_WIDTH-1:0] addr_tst;      //Address value
 logic [BA_WIDTH-1:0] bank_tst;                     //Bank number
 logic [D_WIDTH-1:0] data_tst;                      //Data to be written into the memory
+logic i_reconfig;                                  //
 
 //Fix hold violations - there is a hold time requirement of 800ps so I have added this delay manually
 logic [A_WIDTH-1:0] A_tmp;                         //SDRAM address bus
@@ -79,6 +80,7 @@ SDRAM_controller m0(.i_rst(i_rst),
                     .i_ba(i_ba),
                     .i_data(i_data),
                     .i_rw(i_rw),
+					.i_reconfig(i_reconfig),
                     .A(A_tmp),
                     .BA(BA_tmp),
                     .DQ(DQ),
@@ -125,7 +127,7 @@ task write(input [A_ROW_WIDTH+A_COL_WIDTH-1:0] address, [BA_WIDTH-1:0] bank, [D_
     @(posedge CLK)
     i_initial=1'b0;
     @(negedge o_busy);                                   //Wait until negedge of o_busy which indicates the termination of the write operation
-    compare(addr_tst,bank_tst,data_tst);                 //Verify the correctness of the 'write' operation by executing the 'compare' task	
+    compare(address,bank,wr_data);                 //Verify the correctness of the 'write' operation by executing the 'compare' task	
   end
 endtask
 
@@ -137,7 +139,7 @@ task compare(input [A_ROW_WIDTH+A_COL_WIDTH-1:0] address, [BA_WIDTH-1:0] bank, [
       $display("\nComparison task was succefull!");
     end
     else begin
-      $display("\nComaprison task unfortunately failed. Data stored in memory is: %4h which does not match the written data of %d" , m1.Bank0[address],wr_data);
+      $display("\nComaprison task unfortunately failed. Data stored in memory is: %4h which does not match the written data of %4h" , m1.Bank0[address],wr_data);
       $finish;	
     end
 
@@ -146,7 +148,7 @@ task compare(input [A_ROW_WIDTH+A_COL_WIDTH-1:0] address, [BA_WIDTH-1:0] bank, [
       $display("\nComparison task was succefull!");
     end
     else begin
-      $display("\nComaprison task unfortunately failed. Data stored in memory is: %4h which does not match the written data of %d" , m1.Bank1[address],wr_data);
+      $display("\nComaprison task unfortunately failed. Data stored in memory is: %4h which does not match the written data of %4h" , m1.Bank1[address],wr_data);
       $finish;	
     end
 
@@ -155,7 +157,7 @@ task compare(input [A_ROW_WIDTH+A_COL_WIDTH-1:0] address, [BA_WIDTH-1:0] bank, [
       $display("\nComparison task was succefull!");	
     end
     else begin
-      $display("\nComaprison task unfortunately failed. Data stored in memory is: %4h which does not match the written data of %d" , m1.Bank2[address],wr_data);
+      $display("\nComaprison task unfortunately failed. Data stored in memory is: %4h which does not match the written data of %4h" , m1.Bank2[address],wr_data);
       $finish;	
     end
 
@@ -164,7 +166,7 @@ task compare(input [A_ROW_WIDTH+A_COL_WIDTH-1:0] address, [BA_WIDTH-1:0] bank, [
       $display("\nComparison task was succefull!");	  
     end	  
     else begin
-      $display("\nComaprison task unfortunately failed. Data stored in memory is: %4h which does not match the written data of %d" , m1.Bank3[address],wr_data);
+      $display("\nComaprison task unfortunately failed. Data stored in memory is: %4h which does not match the written data of %4h" , m1.Bank3[address],wr_data);
       $finish;	
     end
   endcase
@@ -182,60 +184,78 @@ task read(input [A_ROW_WIDTH+A_COL_WIDTH-1:0] address, [BA_WIDTH-1:0] bank);
     i_addr=address;
     i_ba=bank;
     @(posedge CLK)
-    i_initial=1'b0;  
+    i_initial=1'b0;
+    @(negedge o_busy);	
   end
 endtask
 
-/* I think this can be deleted..there is no need for such a task
-//'combined_wr_rd_verification' task...
-task combined_wr_rd_verification(input [A_ROW_WIDTH+A_COL_WIDTH-1:0] address, [BA_WIDTH-1:0] bank, [D_WIDTH-1:0] wr_data);
-	write(addr_tst,bank_tst,data_tst);                            //
-    read(addr_tst,bank_tst);
+//'XXX' task...
+task reconfig();
+  i_reconfig<=1'b1;
+  @(posedge CLK);
+  i_reconfig<=1'b0;
+  @(negedge o_busy);
 endtask
-*/
-
 
 //Initial blocks
 initial 
 begin
   i_rst<=1'b0;                                         //When i_rst is logic low the SDRAM is in 'power down' mode and the IC is deselected	
+  i_reconfig<=1'b0;
   CLK<=1'b0;
   i_initial<=1'b0;                                     //Positive edge of i_initial trigerres a read/write operation      
   mode_register<=13'b0001000100000;	                   //Latency=2, burst length=1, single access write operation
   #1000
   i_rst<=1'b1;                                         //Logic high for i_rst triggers SDRAM initialization sequence
-  repeat(10050)                                      //SDRAM initialization sequence requires ~1030 clock cycles. [Can't we rely on the refresh enable signal?] [???]
-    @(posedge CLK);
+
+  @(posedge m0.refresh_en);                            //Wait until initialization process is terminated to issue read/write commands. The controller's 'refresh_en' rises to logic high after said procedure. 
 
   $display("\nInitiate first test: Executing write and read commands on randomly chosen addresses in randomly chosen memory banks");
+  $display("\n------------------------------");
 
-  for (i=0; i<1; i++) begin
-    addr_tst= $dist_uniform(SEED_a,0,8388607);                  //Generate a random address 
-    bank_tst= $dist_uniform(SEED_b,0,3);                        //Generate a random bank number
-    data_tst= $dist_uniform(SEED_d,0,65535);                    //Generate random word to be written into memory
+  for (i=0; i<5; i++) begin
+    addr_tst= $dist_uniform(SEED_a,0,8388607);        //Generate a random address 
+    bank_tst= $dist_uniform(SEED_b,0,3);              //Generate a random bank number
+    data_tst= $dist_uniform(SEED_d,0,65535);          //Generate random word to be written into memory
     write(addr_tst,bank_tst,data_tst);
     read(addr_tst,bank_tst);
-    repeat(2)                                                  //Minimum of 2 CLK cycles is required [??????????? verify this ???????]
-      @(posedge CLK);
   end
 
-  $display("\nModify SDRAM setting");  //latency=2, burst=2
-  //Declare a task to modify the settings + print the previous setting and updated ones
+  $display("\n------------------------------");
+  $display("\n------------------------------");
+  $display("\nModify SDRAM setting");
+  mode_register<=13'b0001000100001;	                 //Latency=2, burst length=2, single access write operation
+  reconfig();
 
+  $display("\n------------------------------");
+  $display("\n------------------------------");
   $display("\nInitiate second test: Executing write command to consecutive address and read the written values in burst mode");
 
-/*
-     write(23'd0,2'b00,16'habcd);              //Initiate a 'write' command 
-     //@(negedge o_busy);                                   //Wait until negedge of o_busy which indicates the termination of the write operation
-     write(23'd1,2'b00,16'h1234);              //Initiate a 'write' command 
-     //@(negedge o_busy);                                   //Wait until negedge of o_busy which indicates the termination of the write operation
-     read(23'd0,2'b00);
-*/ 
+  write(23'd0,2'b00,16'habcd);              //Initiate a 'write' command 
+  write(23'd1,2'b00,16'h1234);              //Initiate a 'write' command 
+  read(23'd0,2'b00);
+ 
+  $display("\n------------------------------");
+  $display("\n------------------------------");
+  $display("\nModify SDRAM setting");
+  mode_register<=13'b0001000110011;	                 //Latency=3, burst length=8, single access write operation
+  reconfig();
+
+  $display("\n------------------------------");
+  $display("\n------------------------------");
+  $display("\nInitiate third test: Executing write command to consecutive address and read the written values in burst mode");
+ 
+  write(23'd0,2'b01,16'h1234);              //Initiate a 'write' command 
+  write(23'd1,2'b01,16'h5678);              //Initiate a 'write' command
+  write(23'd2,2'b01,16'habcd);              //Initiate a 'write' command 
+  write(23'd3,2'b01,16'hffee);              //Initiate a 'write' command
+  write(23'd4,2'b01,16'h1122);              //Initiate a 'write' command 
+  write(23'd5,2'b01,16'h3344);              //Initiate a 'write' command
+  write(23'd6,2'b01,16'h5566);              //Initiate a 'write' command 
+  write(23'd7,2'b01,16'h7788);              //Initiate a 'write' command   
+  read(23'd0,2'b01); 
+ 
 end
-
-
-//Same as the second test with latency=3 and burst=8 [XXXXXXXXXXXX]
-
 
 //100MHz clock generation
 always	

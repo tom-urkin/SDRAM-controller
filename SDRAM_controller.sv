@@ -1,9 +1,7 @@
 //SDRAM Controller for ISSI IS42S16320f-7 IC. Timings are calculated for 100MHz input clock.
 //This controller program the IC upon initialization or upon dedicated request (XXX signal XXX), please refer to the datasheet for configuration specifications. 
 
-//[ADD reconfiguration madoe from IDLE state] X
-
-module SDRAM_controller(i_rst,i_clk,i_initial,i_addr,i_ba,i_data,i_rw,i_mode_register,A,BA,DQ,CKE,CS_N,RAS_N,CAS_N,WE_N,DQML,DQMH,o_data,o_busy);
+module SDRAM_controller(i_rst,i_clk,i_reconfig,i_initial,i_addr,i_ba,i_data,i_rw,i_mode_register,A,BA,DQ,CKE,CS_N,RAS_N,CAS_N,WE_N,DQML,DQMH,o_data,o_busy);
 
 //Parameter declerations
 parameter A_WIDTH=13;                                         //SDRAM address bus length
@@ -48,6 +46,7 @@ input logic [A_ROW_WIDTH+A_COL_WIDTH-1:0] i_addr;             //2^13 rows and 2^
 input logic [BA_WIDTH-1:0] i_ba;                              //Banks select address
 input logic [D_WIDTH-1:0] i_data;                             //Data to be written
 input logic [A_WIDTH-1:0] i_mode_register;                    //Mode register settings (please refer to the datasheet for detailed explanation on the various modes of operation)
+input logic i_reconfig;                                       //Rises to logic high to reconfig SDRAM IC settings (latency,burst length, etc.)
 
 //Outputs
 output logic [A_WIDTH-1:0] A;                                 //SDRAM address bus
@@ -60,7 +59,7 @@ output logic WE_N;                                            //Write enable
 output logic DQML;                                            //Lower byte, input/output mask
 output logic DQMH;                                            //Upper byte, input/ouptut mask
 
-output logic [15:0] o_data;                                   //Word read from memoy. [?] What happens here in bursts? [?] XXXXXXXXXXXXXX
+output logic [15:0] o_data;                                   //Word read from memoy
 output logic o_busy;                                          //Read/Write operations can be initiated only when not busy, i.e. busy==1'b0
 
 //Inouts
@@ -102,7 +101,7 @@ always @(*)
     AUTO_REFRESH_INIT_1 : next_state = WAIT;
     AUTO_REFRESH_INIT_2 : next_state = WAIT;
     MODE_REGISTER_SET : next_state = WAIT;
-    IDLE : next_state = (refresh_flag==1'b1) ? AUTO_REFRESH : (i_initial==1'b1) ? ACTIVATE : IDLE;
+    IDLE : next_state = (refresh_flag==1'b1) ? AUTO_REFRESH : (i_initial==1'b1) ? ACTIVATE : (i_reconfig) ? MODE_REGISTER_SET : IDLE;
     AUTO_REFRESH : next_state = WAIT;
     ACTIVATE : next_state = WAIT;
     WRITE: next_state = WAIT;
@@ -157,7 +156,8 @@ always @(posedge i_clk)
 
    MODE_REGISTER_SET: begin                                     //The comments refer to default mode of: {0001000100000}
      cmd<=MRS;                                                  //Mode register set command
-     next_state_after_wait<=IDLE;                               
+     o_busy<=1'b1;
+	 next_state_after_wait<=IDLE;                               
      counter_wait<=$bits(counter_wait)'(2);                     //TRC period is 60ns (REF to REF)
      A[2:0]<=i_mode_register[2:0];                              //Burst legnth is 1. Determines the maximum number of column locations that can be accessed for a given READ or WRITE command
      A[3]<=i_mode_register[3];                                  //Sequencial burst
@@ -171,7 +171,7 @@ always @(posedge i_clk)
      burst<=(i_mode_register[2:0]==3'b000) ? 4'd1 : (i_mode_register[2:0]==3'b001) ? 4'd2 : (i_mode_register[2:0]==3'b010) ? 3'd4 : (i_mode_register[2:0]==3'b011) ? 4'd8 : 4'd1;  //setting the value of 'burst' used to calculate the duration of 'read' operation
    end
 
-   IDLE: begin    //ADD here an option for reconfiguration of the mode register!!!@#!@#!@#$!@$!@$!@!@$[!!!!!!!!!!]
+   IDLE: begin
       cmd<=NOP;
       o_busy<=1'b0;                                             //Logic low value allows new read/write operations to be issued
       DQ_enable<=1'b0;                                          //Controller's DQ bus is at high-z
@@ -181,48 +181,48 @@ always @(posedge i_clk)
 
    AUTO_REFRESH: begin
      cmd<=REF;
-     counter_wait<=$bits(counter_wait)'(6);                    //TRC period is 60ns (REF to REF)
+     counter_wait<=$bits(counter_wait)'(6);                     //TRC period is 60ns (REF to REF)
      next_state_after_wait<=IDLE;
-     o_busy<=1'b1;                                             //Read/write command cannot be issued during auto refresh phase
+     o_busy<=1'b1;                                              //Read/write command cannot be issued during auto refresh phase
    end
 
    ACTIVATE: begin
      cmd<=ACT;
-     counter_wait<=$bits(counter_wait)'(2);                    //TRCD period is 15ns (Active command to read/write command delay time)
-     next_state_after_wait<= (i_rw==1'b1) ? WRITE : READ;      //i_rw determines the operation: '1'for write and '0' for read
-     A[12:0]<=i_addr[22:10];                                   //Row is registered upon issueing the ACT command
-     BA[1:0]<=i_ba;                                            //Memory bank is registered upon issueing the ACT command
-     o_busy<=1'b1;                                             //Rises to logic high so that no additional read/write requests will not be issued                                      	 
+     counter_wait<=$bits(counter_wait)'(2);                     //TRCD period is 15ns (Active command to read/write command delay time)
+     next_state_after_wait<= (i_rw==1'b1) ? WRITE : READ;       //i_rw determines the operation: '1'for write and '0' for read
+     A[12:0]<=i_addr[22:10];                                    //Row is registered upon issueing the ACT command
+     BA[1:0]<=i_ba;                                             //Memory bank is registered upon issueing the ACT command
+     o_busy<=1'b1;                                              //Rises to logic high so that no additional read/write requests will not be issued                                      	 
    end
 
    WRITE: begin
      cmd<=WRT;
-     A[9:0]<=i_addr[9:0];                                      //Column address
-     A[10]<=1'b1;                                              //Write command with auto precharge enabled
-     DQ_enable<=1'b1;                                          //Set DQ_enable to logic high to allow the controller to set the DQ bus according to the data needed to be written to memory
-     DQ_tx<=i_data;                                            //Data to be written is latched from i_data input                                          
-     DQML<=1'b0;                                               //In write mode, DQML and DQMH control the input buffer. When DQML or DQMH is LOW, the corresponding buffer byte is enabled and data can be written to the device
-     DQMH<=1'b0;                                               //In write mode, DQML and DQMH control the input buffer. When DQML or DQMH is LOW, the corresponding buffer byte is enabled and data can be written to the device
-     counter_wait<=$bits(counter_wait)'(2);                    //TRP period is 15ns. NOP command must be issueed while the SDRAM performs auto precharge operation
+     A[9:0]<=i_addr[9:0];                                       //Column address
+     A[10]<=1'b1;                                               //Write command with auto precharge enabled
+     DQ_enable<=1'b1;                                           //Set DQ_enable to logic high to allow the controller to set the DQ bus according to the data needed to be written to memory
+     DQ_tx<=i_data;                                             //Data to be written is latched from i_data input                                          
+     DQML<=1'b0;                                                //In write mode, DQML and DQMH control the input buffer. When DQML or DQMH is LOW, the corresponding buffer byte is enabled and data can be written to the device
+     DQMH<=1'b0;                                                //In write mode, DQML and DQMH control the input buffer. When DQML or DQMH is LOW, the corresponding buffer byte is enabled and data can be written to the device
+     counter_wait<=$bits(counter_wait)'(2);                     //TRP period is 15ns. NOP command must be issueed while the SDRAM performs auto precharge operation
      next_state_after_wait<=IDLE;
    end
       
    READ: begin
      cmd<=RD;
-     A[9:0]<=i_addr[9:0];                                      //Column adrress
-     A[10]<=1'b1;                                              //Read command with auto precharge enabled
-     DQML<=1'b0;                                               //In read mode, DQML and DQMH control the output buffer. When DQML or DQMH is LOW, thecorresponding buffer byte is enabled, and when HIGH, disabled. The outputs go to the HIGH impedance state when DQML/DQMH is HIGH.
-     DQMH<=1'b0;                                               //In read mode, DQML and DQMH control the output buffer. When DQML or DQMH is LOW, thecorresponding buffer byte is enabled, and when HIGH, disabled. The outputs go to the HIGH impedance state when DQML/DQMH is HIGH.
-     counter_rd<=$bits(counter_rd)'(0);                        //Initialize the counter_rd which monitors the duration of the following NOP command with respect to the latency and burst length
+     A[9:0]<=i_addr[9:0];                                       //Column adrress
+     A[10]<=1'b1;                                               //Read command with auto precharge enabled
+     DQML<=1'b0;                                                //In read mode, DQML and DQMH control the output buffer. When DQML or DQMH is LOW, thecorresponding buffer byte is enabled, and when HIGH, disabled. The outputs go to the HIGH impedance state when DQML/DQMH is HIGH.
+     DQMH<=1'b0;                                                //In read mode, DQML and DQMH control the output buffer. When DQML or DQMH is LOW, thecorresponding buffer byte is enabled, and when HIGH, disabled. The outputs go to the HIGH impedance state when DQML/DQMH is HIGH.
+     counter_rd<=$bits(counter_rd)'(0);                         //Initialize the counter_rd which monitors the duration of the following NOP command with respect to the latency and burst length
    end
    
    READ_DOUT: begin
      cmd<=NOP;
-     counter_wait<=$bits(counter_wait)'(2);                    //TRP period is 15ns. NOP command must be issueed while the SDRAM performs auto precharge operation
+     counter_wait<=$bits(counter_wait)'(2);                     //TRP period is 15ns. NOP command must be issueed while the SDRAM performs auto precharge operation
      next_state_after_wait<=IDLE;
 
-     counter_rd<=counter_rd+$bits(counter_rd)'(1);             //WAIT state is terminated once the internal counter reaches 0
-     if (counter_rd>$bits(counter_rd)'(2-1))                   //FIX THIS!!! sample after the latency but no more than burst !!!! [FIXXXXXXXXX] 
+     counter_rd<=counter_rd+$bits(counter_rd)'(1);              //WAIT state is terminated once the internal counter reaches 0
+     if (counter_rd>$bits(counter_rd)'(latency-1))              //Update the output register after the latency period
        o_data<=DQ;
    end
   endcase
@@ -240,14 +240,14 @@ always @(posedge i_clk or negedge i_rst)
   end
   else if (refresh_en==1'b1) begin
      refresh_flag<=1'b1;
-     if (o_busy==1'b0)                                         //If auto refresh is due but the device is currently in active mode the refresh_flag is maintained logic high until IDLE state is reached
+     if (o_busy==1'b0)                                          //If auto refresh is due but the device is currently in active mode the refresh_flag is maintained logic high until IDLE state is reached
        counter_rst<=$bits(counter_rst)'(0);
   end
   else if ((state==IDLE)&&(refresh_en==1'b0))
     refresh_en<=1'b1;
 
 //Assign commands
-assign rd_duration = $bits(rd_duration)'(latency+burst-1);     //Duration of 'read' operatoins is a function of both the programmed latency and burst length
+assign rd_duration = $bits(rd_duration)'(latency+burst);       //Duration of 'read' operatoins is a function of both the programmed latency and burst length
 assign {CS_N,RAS_N,CAS_N,WE_N}=cmd;                            //cmd is synchronized to the positive edge of i_clk (this assignement does not carry any logical calculations)
 assign DQ = (DQ_enable) ? DQ_tx : 'z;                          //When DQ_enable is logic high allow the controller to set the value of DQ bus, otherwise set to high-z
 assign DQ_rx = DQ;                                             //Value of the shared DQ bus between the SDRAM IC and the controller
