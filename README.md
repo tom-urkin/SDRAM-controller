@@ -14,6 +14,8 @@ The source files  are located at the repository root:
 
 Note: The simulation requires ISSI IS42S16320f-7 verilog model which I'm not uploading here due to legal issue. This file can be easialy obtained by emailing ISSI and asking for verilog model of the SDRAM IC. 
 
+Note: The controller is mostly paramatrized and can be easialy modified to support other SDRAM ICs. Spcial care should be taken modifying the 'NOP' command durations in clock cycles which is a fucntion of the input clock freuqency.
+
 ##
 This repository containts a SystemVerilog implementation of SDRAM controller for [ISSI IS42S16320f-7 IC](https://www.issi.com/WW/pdf/42-45R-S_86400F-16320F.pdf)
 The controller supports CBR (auto) refresh (self refresh mode was ommitted for simplicity but can easially be added) and executes read and write commands with auto pre-charge.
