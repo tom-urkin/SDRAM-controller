@@ -106,7 +106,7 @@ always @(*)
     ACTIVATE : next_state = WAIT;
     WRITE: next_state = WAIT;
     READ: next_state = READ_DOUT;
-    READ_DOUT : next_state = (counter_rd<rd_duration) ? READ_DOUT : WAIT;
+    READ_DOUT : next_state = (counter_rd<rd_duration-1) ? READ_DOUT : WAIT;
  endcase
 
 //Generate corresponding command signals to the SDRAM IC and internal controller signals 
@@ -167,7 +167,7 @@ always @(posedge i_clk)
      A[12:10]<=i_mode_register[12:10];                          //To ensure compatability with futre devices set to '0'
      BA[1:0]<=2'b00;                                            //To ensure compatability with futre devices set to '0'
 
-     latency<=(i_mode_register[6:4]) ? 2'b10 : 2'b11;           //setting the value of 'latency' used to calculate the duration of 'read' operations
+     latency<=(i_mode_register[6:4]==3'b010) ? 2'b10 : 2'b11;           //setting the value of 'latency' used to calculate the duration of 'read' operations
      burst<=(i_mode_register[2:0]==3'b000) ? 4'd1 : (i_mode_register[2:0]==3'b001) ? 4'd2 : (i_mode_register[2:0]==3'b010) ? 3'd4 : (i_mode_register[2:0]==3'b011) ? 4'd8 : 4'd1;  //setting the value of 'burst' used to calculate the duration of 'read' operation
    end
 
@@ -221,7 +221,7 @@ always @(posedge i_clk)
      counter_wait<=$bits(counter_wait)'(2);                     //TRP period is 15ns. NOP command must be issueed while the SDRAM performs auto precharge operation
      next_state_after_wait<=IDLE;
 
-     counter_rd<=counter_rd+$bits(counter_rd)'(1);              //WAIT state is terminated once the internal counter reaches 0
+     counter_rd<=counter_rd+$bits(counter_rd)'(1);              
      if (counter_rd>$bits(counter_rd)'(latency-1))              //Update the output register after the latency period
        o_data<=DQ;
    end

@@ -109,7 +109,7 @@ assign #0.9 DQML = DQML_tmp;
 
 
 //Tasks
-//write task recieves address, bank number and data, initiates a 'write' command and validates its correctness via the 'compare' task declared next
+//write task recieves address, bank number and data, initiates a 'write' command and validates its correctness via the 'compare' task (declared next)
 task write(input [A_ROW_WIDTH+A_COL_WIDTH-1:0] address, [BA_WIDTH-1:0] bank, [D_WIDTH-1:0] wr_data);
   if (o_busy==1'b1) begin
     $display("\n------------------------------");
@@ -189,7 +189,7 @@ task read(input [A_ROW_WIDTH+A_COL_WIDTH-1:0] address, [BA_WIDTH-1:0] bank);
   end
 endtask
 
-//'XXX' task...
+//'reconfig' task toggles the 'i_reconfig' signal which initiate reconfiguration procedure from IDLE state (please see flowchart in the datasheet)
 task reconfig();
   i_reconfig<=1'b1;
   @(posedge CLK);
@@ -245,7 +245,7 @@ begin
   $display("\n------------------------------");
   $display("\nInitiate third test: Executing write command to consecutive address and read the written values in burst mode");
  
-  write(23'd0,2'b01,16'h1234);              //Initiate a 'write' command 
+  write(23'd0,2'b01,16'habba);              //Initiate a 'write' command 
   write(23'd1,2'b01,16'h5678);              //Initiate a 'write' command
   write(23'd2,2'b01,16'habcd);              //Initiate a 'write' command 
   write(23'd3,2'b01,16'hffee);              //Initiate a 'write' command
