@@ -34,44 +34,27 @@ The testbench comprises three tests covering various read/write commands with of
 **Exiting power-off mode:**
 	![Exit_power_off](./docs/Exit_power_off.jpg)  
 
+**Initialization:**
+	![Initialization](./docs/Initialization.jpg)  
+
 1.	Executing 'write' command to a random address and memory bank, followed by a comparison task and a 'read' command. 
 	
 	**Waveform view:**
 		![First_tst_zoom](./docs/First_tst_zoom.jpg)  
 
-	**CTerminal view:**
-		![first_txt_terminal](./docs/first_txt_terminal.jpg)  		
+	**Terminal view:**
+		![first_txt_terminal](./docs/first_txt_terminal.jpg) 
 		
-2.	Communication between controller '2' and target '2'. Write data from controller to target (2 data frames).
-	Here the data sent from the controller to the peripheral unit is 16-bit long (2 data frames, 0011010111001111). 
-	The target unit is 'target_2' (addr_1=7'b1001111) which is configured to execute byte-level clock streching.
-	
-	**Communication between controller '2' and target '2':**
-		![tst2](./docs/tst2_wave.jpg)  
+2.	Changing the burst length to 2 and executing 'write' commands to consecutive addresses in the same bank followed by a read command.
+	Note: please run the simulation and observe the terminal messages along with the corresponding waveforms to verify this test (simulation results are not included since the following test is very similar)
 
-3.	Communication between controller '3' and an unkown target (address mismatch - terminated after the acknoledgement bit)
-	Here the address of the target device (7'b1111110) does not match to any existing devices on the line. 
-	
-	**Communication between controller '3' and unkown target device:**
-		![tst3](./docs/tst3_wave.jpg)  
+3.	Burst length and latency value are modified to 8 and 3, respectivly. Then, wight 'write' commands to consecutive addresses in the same bank are carried followed by a read command.	
+	**Waveform view:**
+		![third_tst](./docs/third_tst.jpg)  
 
-4.	Communication between controller '1' and target '2'. Read data from target to controller (2 bytes are read)
-	Note: Clock strectching is carried only when data is transferred from the controller to the target.
-	
-	**Communication between controller '1' and target '2':**
-		![tst4](./docs/tst4_wave.jpg)  
-		
-5.	Communication between controller '1' and target '1'. Read data from target to controller (1 byte is read)
-	Note: Clock strectching is carried only when data is transferred from the controller to the target.
-	
-	**Communication between controller '1' and target '1':**
-		![tst5](./docs/tst5_wave.jpg)  
+	**Zoom-in view:**
+		![burst_read](./docs/burst_read.jpg)  
 
-6.	Clock synchronization and arbitration verification
-	The two controllers try to control the I2C lines. The timing specifiaction of the two are deliberately different to verify the clock synchronization logic (please see the I2C protocal manual for detailed explanation). Controller '1' is the 'winner' of the arbritration procedure (after the 4th address bit).
-	
-	**Clock synchronization and arbitration verification: controller '1' wins the arbritration proccess:**
-		![tst6](./docs/tst6_wave.jpg)  
 
 ## FPGA - Altera DE2-115
 Comming soon...
