@@ -29,6 +29,9 @@ The following features are supported:
 The testbench comprises three tests covering various read/write commands with of different latency values and burst lengths. 
 
 **SDRAM TB:**
+	![Exit_power_off](./docs/simulaiton.jpg)  
+
+**Exiting power-off mode:**
 	![Exit_power_off](./docs/Exit_power_off.jpg)  
 
 1.	Executing 'write' command to a random address and memory bank, followed by a comparison task and a 'read' command. 
