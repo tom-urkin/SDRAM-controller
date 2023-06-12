@@ -2,7 +2,7 @@
 
 > SystemVerilog SDRAM controller based on ISSI IS42S16320f-7
 
-Implementention in SystemVerilog of __SRAM Controller__.  
+Implementention in SystemVerilog of __SDRAM Controller__.  
 
 ## Get Started
 
@@ -26,14 +26,18 @@ The following features are supported:
 
 ## Testbench
 
-The testbench comprises three tests covering key scenarios of multi-controller (3) multi-target (2) I2C systems.
+The testbench comprises three tests covering various read/write commands with of different latency values and burst lengths. 
 
-1.	Communication between controller '1' and target '1'. Write data from controller to target (3 data frames).
-	Here the data sent from the controller to the peripheral unit is 24-bit long (3 data frames, 110010101111000110101111). 
-	The target unit is 'target_1' (addr_1=7'b1000111) which is configured to execute byte-level clock streching.
+**SDRAM TB:**
+	![Exit_power_off](./docs/Exit_power_off.jpg)  
+
+1.	Executing 'write' command to a random address and memory bank, followed by a comparison task and a 'read' command. 
 	
-	**Communication between controller '1' and target '1':**
-		![tst1_wave](./docs/tst1_wave.jpg)  
+	**Waveform view:**
+		![First_tst_zoom](./docs/First_tst_zoom.jpg)  
+
+	**CTerminal view:**
+		![first_txt_terminal](./docs/first_txt_terminal.jpg)  		
 		
 2.	Communication between controller '2' and target '2'. Write data from controller to target (2 data frames).
 	Here the data sent from the controller to the peripheral unit is 16-bit long (2 data frames, 0011010111001111). 
