@@ -55,6 +55,9 @@ The testbench comprises three tests covering various read/write commands with of
 	**Zoom-in view:**
 		![burst_read](./docs/burst_read.jpg)  
 
+	**QuestaSim memory log:**
+		![memory](./docs/memory.jpg)  
+
 
 ## FPGA - Altera DE2-115
 Comming soon...
