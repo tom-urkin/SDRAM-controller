@@ -49,6 +49,7 @@ The testbench comprises three tests covering various read/write commands with of
 	Note: please run the simulation and observe the terminal messages along with the corresponding waveforms to verify this test (simulation results are not included since the following test is very similar)
 
 3.	Burst length and latency value are modified to 8 and 3, respectivly. Then, wight 'write' commands to consecutive addresses in the same bank are carried followed by a read command.	
+
 	**Waveform view:**
 		![third_tst](./docs/third_tst.jpg)  
 
