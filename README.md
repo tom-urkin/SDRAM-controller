@@ -1,8 +1,8 @@
 # SDRAM controller
 
-> SystemVerilog SDRAM controller based on ISSI IS42S16320f-7
+> SDRAM controller implemented in SystemVerilog for ISSI IS42S16320f-7 IC 
 
-Implementention in SystemVerilog of __SDRAM Controller__.  
+Implementention in SystemVerilog of an __SDRAM Controller__
 
 ## Get Started
 
@@ -12,7 +12,7 @@ The source files  are located at the repository root:
 - [SDRAM_Controller_TB](./SDRAM_Controller_TB.sv)
 - [QuestaSim simulation file](./wave.do)
 
-Note: The simulation requires ISSI IS42S16320f-7 verilog model which I'm not uploading here due to legal issue. This file can be easialy obtained by emailing ISSI and asking for verilog model of the SDRAM IC. 
+Note: The simulation requires ISSI IS42S16320f-7 verilog model which I'm not uploading here due to legal issues. This file can be easialy obtained by emailing ISSI and asking for verilog model of the SDRAM IC. 
 
 Note: The controller is mostly paramatrized and can be easialy modified to support other SDRAM ICs. Spcial care should be taken modifying the 'NOP' command durations in clock cycles which is a fucntion of the input clock freuqency.
 
@@ -28,7 +28,7 @@ The following features are supported:
 
 ## Testbench
 
-The testbench comprises three tests covering various read/write commands with of different latency values and burst lengths. 
+The testbench comprises three tests covering various read/write scenarios with different latency values and burst lengths. 
 
 **SDRAM TB:**
 	![simulation](./docs/simulation.jpg)  
@@ -48,9 +48,9 @@ The testbench comprises three tests covering various read/write commands with of
 		![first_txt_terminal](./docs/first_txt_terminal.jpg) 
 		
 2.	Changing the burst length to 2 and executing 'write' commands to consecutive addresses in the same bank followed by a read command.
-	Note: please run the simulation and observe the terminal messages along with the corresponding waveforms to verify this test (simulation results are not included since the following test is very similar)
+	Note: please run the simulation and observe the terminal messages along with the corresponding waveforms (simulation results are not included here since the following test is very similar)
 
-3.	Burst length and latency value are modified to 8 and 3, respectivly. Then, wight 'write' commands to consecutive addresses in the same bank are carried followed by a read command.	
+3.	Burst length and latency value are modified to 8 and 3, respectivly. Then, eight 'write' commands to consecutive addresses in the same bank are carried followed by a read command.	As can be seen, after the latency period, 8 consecutive words are latcehd which match the written data and the stored data in the memory array.
 
 	**Waveform view:**
 		![third_tst](./docs/third_tst.jpg)  

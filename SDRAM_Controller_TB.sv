@@ -80,7 +80,7 @@ SDRAM_controller m0(.i_rst(i_rst),
                     .i_ba(i_ba),
                     .i_data(i_data),
                     .i_rw(i_rw),
-					.i_reconfig(i_reconfig),
+                    .i_reconfig(i_reconfig),
                     .A(A_tmp),
                     .BA(BA_tmp),
                     .DQ(DQ),
@@ -258,11 +258,11 @@ begin
 end
 
 //100MHz clock generation
-always	
+always
 begin
 #5; 
 CLK=~CLK;
-end		
+end
 
 endmodule
 
