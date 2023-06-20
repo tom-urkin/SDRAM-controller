@@ -68,13 +68,13 @@ The controller has been realized on Cyclone IV FPGA found in the DE2-115 develop
 Note: As discussed in the hardware section of the [I2C repository](https://github.com/tom-urkin/I2C), the 'inout' signals on the controller side (DQ) are seperated into 'DQ_rx' and 'DQ_tx' since tri-state buffers can only be instantiated in the 'top-level' of the design. 
 
 **SDRAM initialization:**
-	![FPGA_config](./docs/FPGA_config.jpg)  
+	![FPGA_initialization](./docs/FPGA_initialization.jpg)  
 As can be seen, the address bus (0220h) indicates latency of 2, burst read of 1 and single-access write operation.
 
 1.	Executing a 'write' command to row 0, column 1 in bank 0. Data to be written is 42ABh.
 	
 	**SignalTap view:**
-		![First_tst_zoom](./docs/First_tst_zoom.jpg)  
+		![FPGA_wr_1](./docs/FPGA_wr_1.jpg)  
 
 	Please refer to the marked instances of the 'data' bus and the 'DQ' bus to verify correct data has been written. 
 	Note: data to be written is sampled upon ACT command initiation (please see SDRAM IC datasheet for further details).
