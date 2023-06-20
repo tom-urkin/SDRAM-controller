@@ -2,7 +2,7 @@
 
 > SDRAM controller implemented in SystemVerilog for ISSI IS42S16320f-7 IC 
 
-Implementention in SystemVerilog of an __SDRAM Controller__
+Implementention in SystemVerilog of an __SDRAM Controller__ for ISSI IS42S16320f-7 IC. Verification is carried in simulation (QuestaSim) and on actual hardware on an ALTERA DE2-115 development board.
 
 ## Get Started
 
@@ -62,8 +62,44 @@ The testbench comprises three tests covering various read/write scenarios with d
 		![memory](./docs/memory.jpg)  
 
 
-## FPGA - Altera DE2-115
-Comming soon...
+## Hardware implementation 
+The controller has been realized on Cyclone IV FPGA found in the DE2-115 development board. Pin locations for the controller's input, output and inout signals can be found in the user manual. Two external keys are used to initiate ACT and MODE_REGISTER_SET commands while various switches are used to set address and bank values. a free-running 16-bit counter is used to generate data to be written into the SDRAM (shown next).
+
+Note: As discussed in the hardware section of the [I2C repository](https://github.com/tom-urkin/I2C), the 'inout' signals on the controller side (DQ) are seperated into 'DQ_rx' and 'DQ_tx' since tri-state buffers can only be instantiated in the 'top-level' of the design. 
+
+**SDRAM initialization:**
+	![FPGA_config](./docs/FPGA_config.jpg)  
+As can be seen, the address bus (0220h) indicates latency of 2, burst read of 1 and single-access write operation.
+
+1.	Executing a 'write' command to row 0, column 1 in bank 0. Data to be written is 42ABh.
+	
+	**SignalTap view:**
+		![First_tst_zoom](./docs/First_tst_zoom.jpg)  
+
+	Please refer to the marked instances of the 'data' bus and the 'DQ' bus to verify correct data has been written. 
+	Note: data to be written is sampled upon ACT command initiation (please see SDRAM IC datasheet for further details).
+
+2.	Executing a 'read' command to row 0, column 1 in bank 0.
+	
+	**SignalTap view:**
+		![FPGA_rd_1](./docs/FPGA_rd_1.jpg)  
+
+	As can be seen, the read data is 42ABh as expected. 
+
+3.	Reconfiguring the SDRAM IC (burst length=2)
+	
+	**SignalTap view:**
+		![FPGA_config](./docs/FPGA_config.jpg)  
+
+4.	Executing a 'read' command to row 1, column 0 in bank 1.
+	
+	Prior to executing a 'read' command, two 'write' commands are made to following memory locations in row 1 of bank 1: B2E4h and CD1Bh.
+
+	**SignalTap view:**
+		![FPGA_rd_2](./docs/FPGA_rd_2.jpg)  
+
+	As can be seen, executing a 'read' command under the modified SDRAM IC settings results in burst read of two consecutive words which match the stored values. 
+
 ## Support
 
 I will be happy to answer any questions.  
